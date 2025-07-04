@@ -108,6 +108,7 @@ const UserAuth = () => {
         <CardContent>
           {isQRScannerOpen ? (
             <QRScanner
+              isOpen={isQRScannerOpen}
               onScan={handleQRLogin}
               onClose={() => setQRScannerOpen(false)}
             />

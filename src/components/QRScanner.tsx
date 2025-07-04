@@ -1,298 +1,171 @@
-import React, { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import React, { useRef, useCallback, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { AlertCircle, Camera, X } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import jsQR from "jsqr";
-import api from "../utils/api";
-import { useAuth } from "@/context/AuthContext";
+import { X, Camera, AlertCircle } from "lucide-react";
+import { Html5QrcodeScanner } from 'html5-qrcode';
+
+// Custom ViewFinder component
+const ViewFinder = () => (
+  <>
+    <svg
+      className="absolute top-0 left-0 w-full h-full"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+    >
+      <path
+        d="M25 2 L2 2 L2 25"
+        stroke="#3B82F6"
+        strokeWidth="4"
+        fill="none"
+      />
+      <path
+        d="M2 75 L2 98 L25 98"
+        stroke="#3B82F6"
+        strokeWidth="4"
+        fill="none"
+      />
+      <path
+        d="M75 98 L98 98 L98 75"
+        stroke="#3B82F6"
+        strokeWidth="4"
+        fill="none"
+      />
+      <path
+        d="M98 25 L98 2 L75 2"
+        stroke="#3B82F6"
+        strokeWidth="4"
+        fill="none"
+      />
+    </svg>
+  </>
+);
 
 interface QRScannerProps {
-  isOpen?: boolean;
-  onClose?: () => void;
-  onScanSuccess?: (qrData: string) => void;
+  onScan: (data: string) => void;
+  onClose: () => void;
 }
 
-const QRScanner = ({
-  isOpen,
-  onClose = () => {},
-  onScanSuccess = () => {},
-}: QRScannerProps) => {
-  const navigate = useNavigate();
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [scanError, setScanError] = useState<string | null>(null);
+const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
+  const hasScanned = useRef(false);
+  const [error, setError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const scanIntervalRef = useRef<number | null>(null);
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  console.log(isOpen);
-  // Request camera permission and setup video stream
-  const setupCamera = async () => {
+  // Initialize scanner
+  useEffect(() => {
+    if (!containerRef.current) return;
+
     try {
+      scannerRef.current = new Html5QrcodeScanner(
+        "qr-reader",
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0,
+        },
+        false
+      );
+
+      scannerRef.current.render(
+        (decodedText) => {
+          if (!hasScanned.current) {
+            hasScanned.current = true;
+            setIsScanning(false);
+            onScan(decodedText);
+          }
+        },
+        (errorMessage) => {
+          // Only log errors that are not "No QR code found"
+          if (!errorMessage.includes("No QR code found")) {
+            console.warn('QR Scanner error:', errorMessage);
+          }
+        }
+      );
+
       setIsScanning(true);
-      setScanError(null);
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setHasPermission(true);
-      }
-    } catch (error) {
-      console.error("Error accessing camera:", error);
-      setHasPermission(false);
-      setScanError("Unable to access camera. Please check permissions.");
-    }
-  };
-
-  // Clean up video stream when component unmounts or dialog closes
-  const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      const tracks = stream.getTracks();
-
-      tracks.forEach((track) => track.stop());
-      videoRef.current.srcObject = null;
+      setError(null);
+    } catch (err) {
+      console.error('Failed to initialize QR scanner:', err);
+      setError('Failed to initialize camera. Please check permissions.');
+      setIsScanning(false);
     }
 
-    if (scanIntervalRef.current) {
-      clearInterval(scanIntervalRef.current);
-      scanIntervalRef.current = null;
-    }
-
-    setIsScanning(false);
-  };
-
-  // Start scanning for QR codes
-  const startScanning = () => {
-    if (!canvasRef.current || !videoRef.current) return;
-
-    const canvas = canvasRef.current;
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    if (!context) return;
-
-    scanIntervalRef.current = window.setInterval(() => {
-      if (
-        videoRef.current &&
-        videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA
-      ) {
-        // Draw video frame to canvas
-        canvas.height = videoRef.current.videoHeight;
-        canvas.width = videoRef.current.videoWidth;
-        context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-
-        // Get image data for QR code scanning
-        const imageData = context.getImageData(
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
-
-        // Scan for QR code
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-        if (code) {
-          // Handle QR code data
-          handleScanSuccess(code.data);
-        }
-      }
-    }, 100);
-  };
-  const { login } = useAuth();
-  const handleScanSuccess = async (qrData: unknown) => {
-    console.log('Raw QR data received:', qrData);
-    
-    try {
-      // Ensure qrData is a string
-      if (typeof qrData !== 'string') {
-        throw new Error('Invalid QR code data type');
-      }
-
-      // Stop scanning immediately after getting valid data
-      stopCamera();
-
-      // Check if it's a login QR code
-      if (qrData.startsWith('login_token:')) {
-        const loginToken = qrData.split(':')[1].trim();
-        console.log('Extracted login token:', loginToken);
-        
-        const response = await api.post('/qr-login/', {
-          login_token: loginToken
-        });
-
-        console.log('API Response:', response);
-        const result = response.data;
-
-        if (result.status === 'success') {
-          console.log('Login successful, storing user data...');
-          // Store tokens and user data
-          localStorage.setItem('access_token', result.data.tokens.access);
-          localStorage.setItem('refresh_token', result.data.tokens.refresh);
-          const userData = {
-            id: result.data.id,
-            id_number: result.data.id_number,
-            first_name: result.data.first_name,
-            last_name: result.data.last_name,
-            user_level: result.data.user_level,
-            qr_code: result.data.qr_code
-          };
-          localStorage.setItem('user', JSON.stringify(userData));
-          
-          login(result.data);
-          onClose();
-          navigate("/actions");
-        } else {
-          setScanError(result.message || 'Invalid login QR code');
-          setupCamera(); // Restart scanning
-        }
-      } else if (qrData.startsWith('item:')) {
-        // Handle new format item QR code
-        const itemId = qrData.split(':')[1].trim();
-        console.log('Extracted item ID:', itemId);
-        onClose();
-        onScanSuccess(itemId);
-      } else {
-        // Try to handle as legacy item QR code (just UUID)
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-        if (uuidRegex.test(qrData)) {
-          console.log('Detected legacy item QR code format');
-          onClose();
-          onScanSuccess(qrData);
-        } else {
-          setScanError('Invalid QR code format');
-          setupCamera(); // Restart scanning
-        }
-      }
-    } catch (error: any) {
-      console.error('QR scan error:', error);
-      setScanError(error.response?.data?.message || 'Error processing QR code. Please try again.');
-      setupCamera(); // Restart scanning
-    }
-  };
-
-  const handleClose = () => {
-    console.log('close');
-    stopCamera();
-    onClose();
-  };
-
-  // Setup camera when dialog opens
-  useEffect(() => {
-    if (isOpen) {
-      setupCamera();
-    } else {
-      stopCamera();
-    }
-
+    // Cleanup function
     return () => {
-      stopCamera();
-    };
-  }, [isOpen]);
-
-  // Start scanning once video is ready
-  useEffect(() => {
-    if (hasPermission && videoRef.current) {
-      const handleVideoReady = () => {
-        startScanning();
-      };
-
-      videoRef.current.addEventListener("loadeddata", handleVideoReady);
-
-      return () => {
-        if (videoRef.current) {
-          videoRef.current.removeEventListener("loadeddata", handleVideoReady);
+      if (scannerRef.current) {
+        try {
+          scannerRef.current.clear();
+        } catch (err) {
+          console.warn('Error clearing scanner:', err);
         }
-      };
+      }
+    };
+  }, [onScan]);
+
+  const handleClose = useCallback(() => {
+    if (scannerRef.current) {
+      try {
+        scannerRef.current.clear();
+      } catch (err) {
+        console.warn('Error clearing scanner:', err);
+      }
     }
-  }, [hasPermission]);
+    setIsScanning(false);
+    hasScanned.current = false;
+    onClose();
+  }, [onClose]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      if (!open) {
-        handleClose();
-      }
-    }}>
-      <DialogContent className="sm:max-w-md bg-background">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Camera className="h-5 w-5" />
-            <span>Scan QR Code</span>
-          </DialogTitle>
-          <DialogDescription>
-            Position the QR code within the frame to scan it.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex flex-col items-center justify-center">
-          {hasPermission === false && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                {scanError ||
-                  "Camera permission denied. Please enable camera access."}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <Card className="relative overflow-hidden w-full aspect-square max-w-sm mx-auto bg-black">
-            {/* Video feed */}
-            <video
-              ref={videoRef}
-              className="w-full h-full object-cover"
-              autoPlay
-              playsInline
-              muted
-              aria-label="Camera feed for QR code scanning"
-            />
-
-            {/* Scanning overlay */}
-            <div className="absolute inset-0 border-2 border-primary/50 flex items-center justify-center">
-              <div className="w-3/4 h-3/4 border-2 border-primary animate-pulse">
-                <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-primary"></div>
-                <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-primary"></div>
-                <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-primary"></div>
-                <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-primary"></div>
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+      <div className="relative bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold text-gray-800">
+            Scan QR Code
+          </h3>
+          <Button variant="ghost" size="icon" onClick={handleClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        <p className="text-sm text-gray-500 text-center mb-4">
+          Place the QR code inside the frame to scan.
+        </p>
+        
+        {error && (
+          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg mb-4">
+            <AlertCircle className="h-4 w-4 text-red-500" />
+            <span className="text-red-700 text-sm">{error}</span>
+          </div>
+        )}
+        
+        <div className="relative w-full aspect-square overflow-hidden rounded-lg border">
+          <ViewFinder />
+          <div 
+            id="qr-reader" 
+            ref={containerRef}
+            className="w-full h-full"
+          />
+          
+          {!isScanning && !error && (
+            <div className="flex items-center justify-center h-full bg-gray-100">
+              <div className="text-center">
+                <Camera className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                <p className="text-sm text-gray-500">Initializing camera...</p>
               </div>
             </div>
-
-            {/* Hidden canvas for processing */}
-            <canvas ref={canvasRef} className="hidden" aria-hidden="true" />
-          </Card>
-
-          <div className="flex justify-between w-full mt-4">
-            <Button variant="outline" onClick={handleClose}>
-              <X className="mr-2 h-4 w-4" />
-              Cancel
-            </Button>
-
-            <Button
-              onClick={() => {
-                if (!isScanning) {
-                  setupCamera();
-                }
-              }}
-              disabled={isScanning}
-            >
-              <Camera className="mr-2 h-4 w-4" />
-              {isScanning ? "Scanning..." : "Restart Scan"}
-            </Button>
-          </div>
+          )}
         </div>
-      </DialogContent>
-    </Dialog>
+
+        <Button
+          onClick={handleClose}
+          variant="outline"
+          className="w-full mt-6"
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
   );
 };
 
-export default QRScanner;
+export default React.memo(QRScanner);

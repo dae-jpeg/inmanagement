@@ -1,135 +1,117 @@
-import { Suspense } from "react";
-import { useRoutes, Routes, Route } from "react-router-dom";
-import routes from "tempo-routes";
-import { AuthProvider } from "./context/AuthContext";
-import ProtectedRoute from "./components/ProtectedRoute";
-import UserAuth from "./components/UserAuth";
-import SignUp from "./components/SignUp";
-import ActionSelection from "./components/ActionSelection";
-import WithdrawItem from "./components/WithdrawItem";
-import ReturnItem from "./components/ReturnItem";
-import Profile from "./components/Profile";
-import History from "./components/History";
-import Success from "./components/Success";
-import Items from "./components/Items";
-import ItemForm from "./components/ItemForm";
-import Users from "./components/Users";
-
-// Staff level route protection
-const StaffRoute = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <ProtectedRoute
-      checkAccess={(user) =>
-        user?.user_level === "STAFF" || user?.user_level === "ADMIN"
-      }
-      redirectTo="/actions"
-    >
-      {children}
-    </ProtectedRoute>
-  );
-};
-
-// Admin level route protection
-const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <ProtectedRoute
-      checkAccess={(user) => user?.user_level === "ADMIN"}
-      redirectTo="/actions"
-    >
-      {children}
-    </ProtectedRoute>
-  );
-};
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from './components/ui/toaster';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import UserAuth from './components/UserAuth';
+import Dashboard from './components/Dashboard';
+import AuthActionFlow from './components/AuthActionFlow';
+import Profile from './components/Profile';
+import History from './components/History';
+import Items from './components/Items';
+import ItemForm from './components/ItemForm';
+import Users from './components/Users';
+import AddNewUser from './components/AddNewUser';
+import CompanyManagement from './components/CompanyManagement';
+import BranchManagement from './components/BranchManagement';
+import BarcodeTest from './components/BarcodeTest';
+import PerformanceMonitor from './components/PerformanceMonitor';
+import SuccessPage from './components/SuccessPage';
 
 function App() {
   return (
     <AuthProvider>
-      <Suspense fallback={<p>Loading...</p>}>
-        <>
-          <Routes>
-            <Route path="/" element={<UserAuth />} />
-            <Route path="/signup" element={<SignUp />} />
-            <Route
-              path="/actions"
-              element={
-                <ProtectedRoute>
-                  <ActionSelection />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/withdraw"
-              element={
-                <ProtectedRoute>
-                  <WithdrawItem />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/return"
-              element={
-                <ProtectedRoute>
-                  <ReturnItem />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/history"
-              element={
-                <ProtectedRoute>
-                  <History />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/success" element={<Success />} />
+      <div className="App">
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<UserAuth />} />
+          <Route path="/login" element={<UserAuth />} />
+          <Route path="/success" element={<SuccessPage />} />
+          
+          {/* Protected routes */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/actions" element={
+            <ProtectedRoute requireCompanySelected>
+              <AuthActionFlow />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/history" element={
+            <ProtectedRoute requireCompanySelected>
+              <History />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/items" element={
+            <ProtectedRoute>
+              <Items />
+            </ProtectedRoute>
+          } />
 
-            {/* Staff Routes */}
-            <Route
-              path="/items"
-              element={
-                <StaffRoute>
-                  <Items />
-                </StaffRoute>
-              }
-            />
-            <Route
-              path="/items/new"
-              element={
-                <StaffRoute>
-                  <ItemForm />
-                </StaffRoute>
-              }
-            />
-            <Route
-              path="/items/:id/edit"
-              element={
-                <StaffRoute>
-                  <ItemForm />
-                </StaffRoute>
-              }
-            />
+          <Route path="/items/new" element={
+            <ProtectedRoute requireCompanySelected>
+              <ItemForm />
+            </ProtectedRoute>
+          } />
 
-            {/* Admin Routes */}
-            <Route
-              path="/users"
-              element={
-                <AdminRoute>
-                  <Users />
-                </AdminRoute>
-              }
-            />
-          </Routes>
-          {import.meta.env.VITE_TEMPO === "true" && useRoutes(routes)}
-        </>
-      </Suspense>
+          <Route path="/items/edit/:id" element={
+            <ProtectedRoute requireCompanySelected>
+              <ItemForm />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/users" element={
+            <ProtectedRoute>
+              <Users />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/users/new" element={
+            <ProtectedRoute>
+              <AddNewUser />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/companies" element={
+            <ProtectedRoute>
+              <CompanyManagement />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/branches" element={
+            <ProtectedRoute>
+              <BranchManagement />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/test" element={
+            <ProtectedRoute>
+              <BarcodeTest />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/performance" element={
+            <ProtectedRoute>
+              <PerformanceMonitor />
+            </ProtectedRoute>
+          } />
+          
+          {/* Redirect any unknown routes to login */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+        <Toaster />
+      </div>
     </AuthProvider>
   );
 }

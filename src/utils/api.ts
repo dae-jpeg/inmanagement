@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const BACKEND_URL = 'http://localhost:8000';
+
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api',  // Point to Django backend
+  baseURL: `${BACKEND_URL}/api`,  // Point to Django backend
   headers: {
     'Content-Type': 'application/json',
   },
@@ -56,5 +58,12 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Utility function to get full URL for media files
+export const getMediaUrl = (path: string | null | undefined): string | null => {
+  if (!path) return null;
+  if (path.startsWith('http')) return path; // Already a full URL
+  return `${BACKEND_URL}${path}`; // Prepend backend URL to relative path
+};
 
 export default api; 

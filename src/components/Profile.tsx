@@ -57,7 +57,7 @@ const Profile = () => {
   }, [user, navigate]);
 
   const handleBackToActions = () => {
-    navigate("/actions");
+    navigate("/dashboard");
   };
 
   const handleSaveProfile = () => {

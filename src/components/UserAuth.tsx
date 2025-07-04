@@ -1,146 +1,142 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Input } from "./ui/input";
-import { Button } from "./ui/button";
-import { Label } from "./ui/label";
-import { Alert, AlertDescription } from "./ui/alert";
-import { AlertCircle, Camera, QrCode } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardFooter,
-} from "./ui/card";
-import QRScanner from "./QRScanner";
-import { useAuth } from "../context/AuthContext";
-import api from "../utils/api";
+import React, { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { useToast } from "@/components/ui/use-toast";
+import api from '@/utils/api';
+import { QrCode } from 'lucide-react';
+import QRScanner from './QRScanner';
 
 const UserAuth = () => {
-  const [formData, setFormData] = useState({
-    idNumber: "",
-    password: "",
-  });
-  const [error, setError] = useState("");
-  const [showScanner, setShowScanner] = useState(false);
-  const navigate = useNavigate();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [isQRScannerOpen, setQRScannerOpen] = useState(false);
   const { login } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.idNumber.trim()) {
-      setError("ID number is required");
-      return;
-    }
-    if (!formData.password.trim()) {
-      setError("Password is required");
+    if (!username || !password) {
+      toast({
+        title: "Login Failed",
+        description: "Please enter both username and password.",
+        variant: "destructive",
+      });
       return;
     }
 
     try {
-      const response = await api.post('/user-lookup/', {
-        id_number: formData.idNumber,
-        password: formData.password,
+      // Step 1: Get the access and refresh tokens
+      const tokenResponse = await api.post('/token/', {
+        username,
+        password,
+      });
+      const { access, refresh } = tokenResponse.data;
+
+      // Store both tokens in localStorage
+      localStorage.setItem('refresh_token', refresh);
+
+      // Step 2: Use the token to get user profile
+      const profileResponse = await api.get('/profile/', {
+        headers: {
+          Authorization: `Bearer ${access}`
+        }
       });
 
-      const result = response.data;
+      // Step 3: Call login from AuthContext
+      login(profileResponse.data, access);
+      
+      toast({
+        title: "Login Successful",
+        description: `Welcome back, ${profileResponse.data.username}!`,
+      });
+      navigate('/dashboard');
 
-      if (result.status === 'success') {
-        login(result.data);
-        navigate("/actions");
-      } else {
-        setError(result.message || "Invalid ID number or password");
-      }
     } catch (error: any) {
       console.error('Login error:', error);
-      setError(error.response?.data?.message || "Error during login. Please try again.");
+      const errorMsg = error.response?.data?.detail || 'An unexpected error occurred.';
+      toast({
+        title: "Login Failed",
+        description: errorMsg,
+        variant: "destructive",
+      });
     }
   };
 
-  const handleQRScanSuccess = (qrData: any) => {
-    console.log('QR scan completed in UserAuth, data:', qrData);
-    setShowScanner(false);
-  };
+  const handleQRLogin = useCallback(async (scannedData: string) => {
+    setQRScannerOpen(false);
+    try {
+      // Extract only the UUID if the scanned data is in the format 'login_token:<uuid>'
+      let loginToken = scannedData;
+      if (loginToken.startsWith('login_token:')) {
+        loginToken = loginToken.replace('login_token:', '');
+      }
+      // Send the UUID to the backend
+      const response = await api.post('/qr-login/', { login_token: loginToken });
+      const { access, refresh, user: userData } = response.data;
+      // Store tokens
+      localStorage.setItem('access_token', access);
+      localStorage.setItem('refresh_token', refresh);
+      // Log in the user
+      login(userData, access);
+      toast({
+        title: 'QR Login Successful',
+        description: `Welcome, ${userData.username || userData.first_name}!`,
+      });
+      navigate('/dashboard');
+    } catch (error: any) {
+      console.error('QR login error:', error);
+      const errorMsg = error.response?.data?.detail || 'QR login failed.';
+      toast({
+        title: 'QR Login Failed',
+        description: errorMsg,
+        variant: 'destructive',
+      });
+    }
+  }, [login, navigate, toast]);
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-white">
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">
-            Inventory Management System
-          </CardTitle>
+          <CardTitle>Login</CardTitle>
+          <CardDescription>Enter your credentials to access your account</CardDescription>
         </CardHeader>
         <CardContent>
-          {showScanner && (
+          {isQRScannerOpen ? (
             <QRScanner
-              isOpen={showScanner}
-              onClose={() => setShowScanner(false)}
-              onScanSuccess={handleQRScanSuccess}
+              onScan={handleQRLogin}
+              onClose={() => setQRScannerOpen(false)}
             />
-          )}
-          {!showScanner && (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="idNumber">ID Number</Label>
+          ) : (
+            <form onSubmit={handleLogin}>
+              <div className="space-y-4">
                 <Input
-                  id="idNumber"
-                  value={formData.idNumber}
-                  onChange={(e) => setFormData({...formData, idNumber: e.target.value})}
-                  placeholder="Enter your ID number"
-                  className="flex-1"
-                  autoFocus
+                  placeholder="Username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                 />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
                 <Input
-                  id="password"
                   type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  placeholder="Enter your password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
-
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowScanner(true)}
-                  className="flex items-center gap-2"
-                >
-                  <Camera className="h-4 w-4" />
-                  Scan QR Code
-                </Button>
+              <div className="flex flex-col space-y-2 mt-4">
+                  <Button type="submit" className="w-full">
+                    Login
+                  </Button>
+                  <Button variant="outline" className="w-full" onClick={() => setQRScannerOpen(true)}>
+                      <QrCode className="mr-2 h-4 w-4"/> Scan QR Code
+                  </Button>
               </div>
-
-              {error && (
-                <Alert variant="destructive" className="py-2">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <Button type="submit" className="w-full">
-                Login
-              </Button>
             </form>
           )}
         </CardContent>
-        <CardFooter className="flex flex-col gap-2 items-center">
-          <span className="text-sm text-muted-foreground">
-            Login with your ID number and password or scan your QR code
-          </span>
-          <Button
-            variant="link"
-            onClick={() => navigate("/signup")}
-            className="flex items-center gap-1"
-          >
-            <QrCode className="h-4 w-4" />
-            Don't have an account? Create one
-          </Button>
-        </CardFooter>
       </Card>
     </div>
   );

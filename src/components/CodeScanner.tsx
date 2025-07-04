@@ -6,17 +6,19 @@ import { X } from 'lucide-react';
 import { Html5QrcodeSupportedFormats } from 'html5-qrcode';
 
 interface CodeScannerProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onScanSuccess: (value: string) => void;
-  scanType: 'qr' | 'barcode';
+  isOpen?: boolean;
+  onClose?: () => void;
+  onScanSuccess?: (value: string) => void;
+  onScan?: (value: string) => void;
+  scanType?: 'qr' | 'barcode';
 }
 
 const CodeScanner: React.FC<CodeScannerProps> = ({
-  isOpen,
-  onClose,
+  isOpen = true,
+  onClose = () => {},
   onScanSuccess,
-  scanType,
+  onScan,
+  scanType = 'qr',
 }) => {
   const [scanner, setScanner] = useState<Html5QrcodeScanner | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -78,28 +80,23 @@ const CodeScanner: React.FC<CodeScannerProps> = ({
           (decodedText) => {
             console.log(`Raw scanned text: "${decodedText}"`);
             console.log(`Scan type: ${scanType}`);
-            
             // Handle successful scan
+            const handle = onScanSuccess || onScan;
             if (scanType === 'barcode') {
               console.log('Processing barcode scan...');
-              // For barcodes, we expect the format: BAR{item_id}
               if (decodedText.startsWith('BAR')) {
                 console.log(`Barcode with BAR prefix: ${decodedText}`);
-                onScanSuccess(decodedText);
+                handle && handle(decodedText);
               } else {
-                // If it's a plain barcode number, format it
                 const formattedBarcode = `BAR${decodedText}`;
                 console.log(`Formatted barcode: ${formattedBarcode}`);
-                onScanSuccess(formattedBarcode);
+                handle && handle(formattedBarcode);
               }
             } else {
               console.log('Processing QR code scan...');
-              // For QR codes, we expect the format: item:{uuid}
               console.log(`QR code data: ${decodedText}`);
-              onScanSuccess(decodedText);
+              handle && handle(decodedText);
             }
-            
-            // Stop scanning after successful scan
             if (currentScanner) {
               currentScanner.clear();
             }

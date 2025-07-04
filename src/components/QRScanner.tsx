@@ -40,11 +40,12 @@ const ViewFinder = () => (
 );
 
 interface QRScannerProps {
-  onScan: (data: string) => void;
+  isOpen: boolean;
   onClose: () => void;
+  onScanSuccess: (itemId: string) => void;
 }
 
-const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
+const QRScanner: React.FC<QRScannerProps> = ({ isOpen, onClose, onScanSuccess }) => {
   const hasScanned = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -53,7 +54,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
 
   // Initialize scanner
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!isOpen || !containerRef.current) return;
 
     try {
       scannerRef.current = new Html5QrcodeScanner(
@@ -71,11 +72,10 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
           if (!hasScanned.current) {
             hasScanned.current = true;
             setIsScanning(false);
-            onScan(decodedText);
+            onScanSuccess(decodedText);
           }
         },
         (errorMessage) => {
-          // Only log errors that are not "No QR code found"
           if (!errorMessage.includes("No QR code found")) {
             console.warn('QR Scanner error:', errorMessage);
           }
@@ -90,7 +90,6 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
       setIsScanning(false);
     }
 
-    // Cleanup function
     return () => {
       if (scannerRef.current) {
         try {
@@ -100,7 +99,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
         }
       }
     };
-  }, [onScan]);
+  }, [isOpen, onScanSuccess]);
 
   const handleClose = useCallback(() => {
     if (scannerRef.current) {

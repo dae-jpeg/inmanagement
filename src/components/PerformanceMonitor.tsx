@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
-import { Activity, Cpu, Memory, Zap } from 'lucide-react';
+import { Activity, Cpu, Zap } from 'lucide-react';
 
 const PerformanceMonitor: React.FC = () => {
   const [performanceData, setPerformanceData] = useState({
@@ -40,7 +40,7 @@ const PerformanceMonitor: React.FC = () => {
     // Monitor memory usage
     const measureMemory = () => {
       if ('memory' in performance) {
-        const memory = performance.memory;
+        const memory = (performance as any).memory as { usedJSHeapSize: number };
         setPerformanceData(prev => ({
           ...prev,
           memory: Math.round(memory.usedJSHeapSize / 1024 / 1024) // MB

@@ -245,7 +245,7 @@ const AddNewUser: React.FC = () => {
           <form 
             onSubmit={handleSubmit}
             onKeyDown={e => {
-              if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+              if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
                 e.preventDefault();
               }
             }}

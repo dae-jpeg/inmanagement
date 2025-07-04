@@ -16,7 +16,7 @@ const SuccessPage = () => {
   }
 
   const handleContinue = () => {
-    login(userData);
+    login(userData, qrCode || '');
     navigate('/dashboard');
   };
 

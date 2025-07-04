@@ -22,7 +22,7 @@ const ScanPage: React.FC = () => {
     <div className="container mx-auto p-4 space-y-4">
       <h1 className="text-2xl font-bold mb-4">Scan Item</h1>
       
-      <CodeScanner onScan={handleScan} />
+      <CodeScanner onScan={handleScan} scanType="qr" />
 
       {scannedItem && (
         <Card className="p-4">

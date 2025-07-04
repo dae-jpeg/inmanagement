@@ -42,10 +42,11 @@ const ViewFinder = () => (
 interface QRScannerProps {
   isOpen: boolean;
   onClose: () => void;
-  onScanSuccess: (itemId: string) => void;
+  onScanSuccess?: (itemId: string) => void;
+  onScan?: (scannedData: string) => void | Promise<void>;
 }
 
-const QRScanner: React.FC<QRScannerProps> = ({ isOpen, onClose, onScanSuccess }) => {
+const QRScanner: React.FC<QRScannerProps> = ({ isOpen, onClose, onScanSuccess, onScan }) => {
   const hasScanned = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -72,7 +73,11 @@ const QRScanner: React.FC<QRScannerProps> = ({ isOpen, onClose, onScanSuccess })
           if (!hasScanned.current) {
             hasScanned.current = true;
             setIsScanning(false);
-            onScanSuccess(decodedText);
+            if (onScan) {
+              onScan(decodedText);
+            } else if (onScanSuccess) {
+              onScanSuccess(decodedText);
+            }
           }
         },
         (errorMessage) => {
@@ -99,7 +104,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ isOpen, onClose, onScanSuccess })
         }
       }
     };
-  }, [isOpen, onScanSuccess]);
+  }, [isOpen, onScanSuccess, onScan]);
 
   const handleClose = useCallback(() => {
     if (scannerRef.current) {

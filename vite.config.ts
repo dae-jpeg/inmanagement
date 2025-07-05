@@ -24,7 +24,9 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: process.env.NODE_ENV === 'development' 
+          ? 'http://127.0.0.1:8000' 
+          : 'https://backinventory.onrender.com',
         changeOrigin: true,
         secure: false,
         configure: (proxy, _options) => {
@@ -40,7 +42,9 @@ export default defineConfig({
         }
       },
       '/media': {
-        target: 'http://127.0.0.1:8000',
+        target: process.env.NODE_ENV === 'development' 
+          ? 'http://127.0.0.1:8000' 
+          : 'https://backinventory.onrender.com',
         changeOrigin: true,
         secure: false
       }

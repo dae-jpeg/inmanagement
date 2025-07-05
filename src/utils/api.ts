@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const BACKEND_URL = 'http://localhost:8000';
+// Use environment variable for backend URL, fallback to localhost for development
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: `${BACKEND_URL}/api`,  // Point to Django backend
@@ -35,7 +36,7 @@ api.interceptors.response.use(
 
       try {
         const refreshToken = localStorage.getItem('refresh_token');
-        const response = await axios.post('http://localhost:8000/api/token/refresh/', {
+        const response = await axios.post(`${BACKEND_URL}/api/token/refresh/`, {
           refresh: refreshToken,
         });
 

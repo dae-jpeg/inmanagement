@@ -76,7 +76,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ isOpen, onClose, onScanSuccess, o
             if (onScan) {
               onScan(decodedText);
             } else if (onScanSuccess) {
-              onScanSuccess(decodedText);
+            onScanSuccess(decodedText);
             }
           }
         },

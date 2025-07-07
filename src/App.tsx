@@ -13,10 +13,12 @@ import ItemForm from './components/ItemForm';
 import Users from './components/Users';
 import AddNewUser from './components/AddNewUser';
 import CompanyManagement from './components/CompanyManagement';
+import CompanyEdit from './components/CompanyEdit';
 import BranchManagement from './components/BranchManagement';
 import BarcodeTest from './components/BarcodeTest';
 import PerformanceMonitor from './components/PerformanceMonitor';
 import SuccessPage from './components/SuccessPage';
+import TransactionSuccessPage from './components/TransactionSuccessPage';
 
 function App() {
   return (
@@ -27,6 +29,8 @@ function App() {
           <Route path="/" element={<UserAuth />} />
           <Route path="/login" element={<UserAuth />} />
           <Route path="/success" element={<SuccessPage />} />
+          <Route path="/withdraw" element={<TransactionSuccessPage mode="withdraw" />} />
+          <Route path="/return" element={<TransactionSuccessPage mode="return" />} />
           
           {/* Protected routes */}
           <Route path="/dashboard" element={
@@ -86,6 +90,12 @@ function App() {
           <Route path="/companies" element={
             <ProtectedRoute>
               <CompanyManagement />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/company-edit" element={
+            <ProtectedRoute requireCompanySelected>
+              <CompanyEdit />
             </ProtectedRoute>
           } />
 

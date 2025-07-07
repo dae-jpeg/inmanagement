@@ -177,6 +177,15 @@ const Dashboard: React.FC = () => {
       color: 'bg-indigo-500',
       isGlobal: true // Accessible to all authenticated users
     },
+    {
+      key: 'company-edit',
+      title: 'Company Settings',
+      description: 'Edit company information and branding',
+      icon: Building,
+      path: '/company-edit',
+      color: 'bg-blue-500',
+      allowedRoles: ['OWNER']
+    },
   ];
 
   const availableMenuItems = menuItems.filter(item => {

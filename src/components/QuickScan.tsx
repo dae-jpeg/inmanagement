@@ -31,7 +31,8 @@ const QuickScan = ({ isOpen, onClose, mode }: QuickScanProps) => {
       navigate(`/${mode}`, { 
         state: { 
           transactionComplete: true,
-          itemId: itemId
+          itemId: itemId,
+          transactionId: response.data.id
         }
       });
     } catch (err) {

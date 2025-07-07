@@ -362,6 +362,8 @@ const AuthActionFlow: React.FC<AuthActionFlowProps> = ({
         }
       }
 
+      let transactionResult;
+      
       if (isBulkMode) {
         // Create a single transaction with the bulk quantity
         const quantity = parseInt(bulkQuantity);
@@ -400,6 +402,8 @@ const AuthActionFlow: React.FC<AuthActionFlowProps> = ({
             }
           }
         }
+
+        transactionResult = await transactionResponse.json();
       } else {
         // Single transaction
         const transactionData = {
@@ -435,44 +439,21 @@ const AuthActionFlow: React.FC<AuthActionFlowProps> = ({
             }
           }
         }
+
+        transactionResult = await transactionResponse.json();
       }
 
-      // Fetch updated item information to show in success message
-      try {
-        const updatedItemResponse = await fetch(`${apiUrl}/api/items/${item.id}/`, { headers });
-        if (updatedItemResponse.ok) {
-          const updatedItem = await updatedItemResponse.json();
-          const stockStatus = updatedItem.stock_quantity === 0 ? 'Out of Stock' : 
-            updatedItem.stock_quantity <= updatedItem.minimum_stock ? 'Low Stock' : 'Available';
-          
-          if (isBulkMode) {
-            const quantity = parseInt(bulkQuantity);
-            setSuccessMessage(
-              `Successfully ${actionType === 'withdraw' ? 'withdrew' : 'returned'} ${quantity} items of ${item.name}. New Stock: ${updatedItem.stock_quantity} (${stockStatus})`
-            );
-          } else {
-            setSuccessMessage(
-              `Successfully ${actionType === 'withdraw' ? 'withdrew' : 'returned'} ${item.name}. New Stock: ${updatedItem.stock_quantity} (${stockStatus})`
-            );
-          }
-        } else {
-          if (isBulkMode) {
-            const quantity = parseInt(bulkQuantity);
-            setSuccessMessage(`Successfully ${actionType === 'withdraw' ? 'withdrew' : 'returned'} ${quantity} items of ${item.name}.`);
-          } else {
-            setSuccessMessage(`Successfully ${actionType === 'withdraw' ? 'withdrew' : 'returned'} ${item.name}.`);
-          }
-        }
-      } catch (e) {
-        if (isBulkMode) {
-          const quantity = parseInt(bulkQuantity);
-          setSuccessMessage(`Successfully ${actionType === 'withdraw' ? 'withdrew' : 'returned'} ${quantity} items of ${item.name}.`);
-        } else {
-          setSuccessMessage(`Successfully ${actionType === 'withdraw' ? 'withdrew' : 'returned'} ${item.name}.`);
-        }
-      }
 
-      setShowSuccess(true);
+
+      // Navigate to the new transaction success page
+      navigate(`/${actionType}`, { 
+        state: { 
+          transactionComplete: true,
+          itemId: item.id,
+          transactionId: transactionResult.id
+        }
+      });
+      
       fetchItems(); // Refresh the items list
       setIsBulkMode(false);
       setBulkQuantity('1');
@@ -567,35 +548,7 @@ const AuthActionFlow: React.FC<AuthActionFlowProps> = ({
     saveLastScanType(actionType, type);
   };
 
-  if (showSuccess) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="max-w-md w-full bg-white p-6 rounded-xl shadow-lg">
-          <div className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-              <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-3" />
-              <p className="text-green-700 font-medium">{successMessage}</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Button 
-                onClick={handleNewAction}
-                className="w-full h-10"
-              >
-                Start New Action
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={handleBackToActions}
-                className="w-full h-10"
-              >
-                Back to Actions
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="container mx-auto p-4">
